@@ -2,9 +2,12 @@ package config
 
 import (
 	"log"
+	"sync"
 
 	"github.com/spf13/viper"
 )
+
+var once sync.Once
 
 var AppConfig *Config
 
@@ -54,20 +57,22 @@ type LogConfig struct {
 }
 
 func InitConfig() {
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./config")
+	once.Do(func() {
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath("./config")
 
-	// 设置环境变量前缀
-	viper.SetEnvPrefix("INSURAI")
-	viper.AutomaticEnv()
+		// 设置环境变量前缀
+		viper.SetEnvPrefix("INSURAI")
+		viper.AutomaticEnv()
 
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file: %v", err)
-	}
+		if err := viper.ReadInConfig(); err != nil {
+			log.Fatalf("Error reading config file: %v", err)
+		}
 
-	if err := viper.Unmarshal(&AppConfig); err != nil {
-		log.Fatalf("Error unmarshalling config: %v", err)
-	}
-	log.Printf("Config: %v", AppConfig)
+		if err := viper.Unmarshal(&AppConfig); err != nil {
+			log.Fatalf("Error unmarshalling config: %v", err)
+		}
+		log.Printf("Config: %v", AppConfig)
+	})
 }
