@@ -26,10 +26,12 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	Driver       string `mapstructure:"driver"`
-	DSN          string `mapstructure:"dsn"`
-	MaxIdleConns int    `mapstructure:"max_idle_conns"`
-	MaxOpenConns int    `mapstructure:"max_open_conns"`
+	Driver          string `mapstructure:"driver"`
+	DSN             string `mapstructure:"dsn"`
+	MaxIdleConns    int    `mapstructure:"max_idle_conns"`
+	MaxOpenConns    int    `mapstructure:"max_open_conns"`
+	SlowThreshold   int    `mapstructure:"slow_threshold"`
+	ConnMaxLifetime int    `mapstructure:"conn_max_lifetime"`
 }
 
 type RedisConfig struct {

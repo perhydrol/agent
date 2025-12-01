@@ -336,3 +336,5 @@ pyrightconfig.json
 .ans/*
 
 config/config.yaml
+
+git.diff
