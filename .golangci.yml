@@ -1,8 +1,6 @@
 # .golangci.yml
 # GolangCI-Lint 配置文件 - 适用于现代Go项目
 
-version: "2"
-
 run:
   # 设置超时时间，防止大型项目检查卡死
   timeout: 5m
@@ -10,12 +8,6 @@ run:
   concurrency: 4
   # 包含测试文件进行检查
   tests: true
-  # 跳过指定目录
-  skip-dirs:
-    - docs
-    - vendor
-    - third_party
-    - testdata
 
 linters:
   # 禁用所有默认linters，只启用我们明确指定的
@@ -30,7 +22,7 @@ linters:
     - gocyclo       # 核心：检查函数复杂度 (圈复杂度)
     - revive        # golint 的升级版，检查代码风格
     - bodyclose     # 核心：检查 HTTP Body 是否关闭 (防止内存泄漏)
-    - sqlclose      # 核心：检查 SQL Rows 是否关闭
+    - sqlclosecheck # 核心：检查 SQL Rows 是否关闭
     - gosec         # 安全检查
     - misspell      # 拼写错误检查
     - whitespace    # 检查多余的空白字符
@@ -67,10 +59,11 @@ linters-settings:
       rules:
         - name: exported
           arguments:
-            - disableStuttering: true # 禁止像 UserUser 这样的命名
+            - "checkPrivateReceivers" # 检查私有接收者
+            - "sayRepetitiveInsteadOfStutters"
         - name: var-naming
           arguments:
-            - allow-list: ["ID", "URL", "HTTP", "HTTPS"]
+            - ["ID", "URL", "HTTP", "HTTPS"]
         - name: line-length-limit
           arguments: [120]
         - name: function-result-limit
@@ -94,6 +87,9 @@ issues:
     - vendor
     - third_party
     - testdata
+    - tmp
+    - .ans
+    - logs
   
   # 排除一些不必太较真的规则
   exclude-rules:
@@ -124,16 +120,15 @@ issues:
 output:
   # 输出格式
   formats:
-    - text:
-        path: stdout
-        print-issued-lines: true
-        print-linter-name: true
+    - format: colored-line-number
   # 显示统计信息
   show-stats: true
+  print-issued-lines: true
+  print-linter-name: true
 
 severity:
   # 默认严重级别
-  default: error
+  default-severity: error
   # 特定linters的严重级别
   rules:
     - linters:

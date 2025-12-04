@@ -6,16 +6,19 @@ import (
 	"go.uber.org/zap"
 )
 
-type RedisLogger struct {
+// Logger 日志适配器，用于将 Redis 客户端日志输出到 Zap
+type Logger struct {
 	zapLogger *zap.Logger
 }
 
-func (l *RedisLogger) Printf(ctx context.Context, format string, v ...interface{}) {
+// Printf 按格式输出日志
+func (l *Logger) Printf(ctx context.Context, format string, v ...interface{}) {
 	l.zapLogger.Sugar().Infof(format, v...)
 }
 
-func NewRedisLogger(zaplogger *zap.Logger) RedisLogger {
-	return RedisLogger{
+// NewLogger 创建 Logger
+func NewLogger(zaplogger *zap.Logger) Logger {
+	return Logger{
 		zapLogger: zaplogger,
 	}
 }

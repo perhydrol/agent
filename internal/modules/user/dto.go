@@ -21,8 +21,8 @@ type LoginResp struct {
 	Username    string `json:"username" example:"johndoe"`
 }
 
-// UserProfileResp 用户个人信息返回
-type UserProfileResp struct {
+// ProfileResp 用户个人信息返回
+type ProfileResp struct {
 	ID        int64  `json:"id" example:"1"`
 	Username  string `json:"username" example:"johndoe"`
 	Email     string `json:"email" example:"john@example.com"`

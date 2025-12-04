@@ -17,8 +17,8 @@ var once sync.Once
 
 func InitRedisDB(cfg config.RedisConfig) {
 	once.Do(func() {
-		redisLogger := NewRedisLogger(logger.Log)
-		redis.SetLogger(&redisLogger)
+		rLogger := NewLogger(logger.Log)
+		redis.SetLogger(&rLogger)
 		RDB = redis.NewClient(&redis.Options{
 			Addr:     cfg.Addr,
 			Password: cfg.Password,
