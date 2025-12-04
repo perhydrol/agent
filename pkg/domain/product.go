@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -18,7 +19,11 @@ func (m JSONMap) Value() (driver.Value, error) {
 }
 
 func (m *JSONMap) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), m)
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("domain.JSONMap Scan: expected []byte, got %T", value)
+	}
+	return json.Unmarshal(b, m)
 }
 
 type Product struct {

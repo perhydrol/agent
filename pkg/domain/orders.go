@@ -24,7 +24,9 @@ type Order struct {
 
 	// 2. 快照字段 (Snapshot)
 	// 即使 Product 表里的数据变了，这里的数据绝对不能变
-	ProductNameSnapshot  string          `gorm:"column:product_name_snapshot;type:varchar(128);not null" json:"product_name"`
+	//nolint:revive
+	ProductNameSnapshot string `gorm:"column:product_name_snapshot;type:varchar(128);not null" json:"product_name"`
+	//nolint:revive
 	ProductPriceSnapshot decimal.Decimal `gorm:"column:product_price_snapshot;type:decimal(10,2);not null" json:"unit_price"`
 
 	// 订单总金额 (可能包含后续的折扣逻辑，所以单独存)
