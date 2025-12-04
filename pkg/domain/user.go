@@ -30,6 +30,6 @@ func (o *User) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 type UserRepository interface {
-	RegisterUser(ctx context.Context, username, passwordHash, email string) error
-	GetUser(ctx context.Context, username string) (User, error)
+	RegisterUser(ctx context.Context, user *User) error
+	GetUserName(ctx context.Context, username string) (*User, error)
 }
