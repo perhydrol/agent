@@ -49,7 +49,7 @@ type JwtConfig struct {
 }
 
 type SnowflakeConfig struct {
-	NodeID int `mapstructure:"node_id"`
+	NodeID int64 `mapstructure:"node_id"`
 }
 
 type LogConfig struct {

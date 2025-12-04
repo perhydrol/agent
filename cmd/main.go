@@ -12,6 +12,7 @@ import (
 	_ "github.com/perhydrol/insurance-agent-backend/docs"
 	"github.com/perhydrol/insurance-agent-backend/pkg/config"
 	"github.com/perhydrol/insurance-agent-backend/pkg/database"
+	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	"github.com/perhydrol/insurance-agent-backend/pkg/redis"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ import (
 func main() {
 	config.InitConfig()
 	logger.InitLogger(config.AppConfig.Log)
+	domain.InitIDGenerator(config.AppConfig.Snowflake.NodeID)
 	database.InitDB(config.AppConfig.Database)
 	redis.InitRedisDB(config.AppConfig.Redis)
 
