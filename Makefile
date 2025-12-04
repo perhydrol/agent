@@ -2,7 +2,7 @@
 
 # 项目变量
 APP_NAME=insurai
-MAIN_FILE=cmd/server/main.go
+MAIN_FILE=cmd/main.go
 # 你的 Docker 镜像名 (如果有的话)
 DOCKER_IMAGE=$(APP_NAME):latest
 

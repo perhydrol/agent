@@ -1,12 +1,20 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/perhydrol/insurance-agent-backend/cmd/server"
 	_ "github.com/perhydrol/insurance-agent-backend/docs"
-	swaggerfiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/perhydrol/insurance-agent-backend/pkg/config"
+	"github.com/perhydrol/insurance-agent-backend/pkg/database"
+	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
+	"github.com/perhydrol/insurance-agent-backend/pkg/redis"
+	"go.uber.org/zap"
 )
 
 // @title           InsurAI Platform API
@@ -15,26 +23,37 @@ import (
 // @host            localhost:8080
 // @BasePath        /api/v1
 func main() {
-	r := gin.Default()
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+	config.InitConfig()
+	logger.InitLogger(config.AppConfig.Log)
+	database.InitDB(config.AppConfig.Database)
+	redis.InitRedisDB(config.AppConfig.Redis)
 
-	v1 := r.Group("/api/v1")
-	{
-		v1.GET("/ping", Ping)
+	r := server.SetupRouter(config.AppConfig.Server)
+
+	port := config.AppConfig.Server.Port
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
 	}
-	r.Run(":8080")
-}
 
-// PingHandler
-// @Summary      健康检查
-// @Description  检测服务是否存活
-// @Tags         System
-// @Accept       json
-// @Produce      json
-// @Success      200  {object}  map[string]string
-// @Router       /ping [get]
-func Ping(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "pong",
-	})
+	go func() {
+		logger.Log.Info("Server is running", zap.String("port", port))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatal("listen error", zap.Error(err))
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit // 阻塞直到收到信号
+	logger.Log.Info("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Log.Fatal("Server forced to shutdown", zap.Error(err))
+	}
+
+	logger.Log.Info("Server exiting")
 }

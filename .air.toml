@@ -5,10 +5,10 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main cmd/server/main.go"
+  cmd = "go build -o ./tmp/main cmd/main.go"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata", "docs"]
-  pre_cmd = ["swag init -g cmd/server/main.go"]
+  pre_cmd = ["swag init -g cmd/main.go"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false

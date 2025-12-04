@@ -21,8 +21,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port string `mapstructure:"port"`
-	Mode string `mapstructure:"mode"`
+	Port  string `mapstructure:"port"`
+	Mode  string `mapstructure:"mode"`
+	Stack bool   `mapstructure:"stack"`
 }
 
 type DatabaseConfig struct {

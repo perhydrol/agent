@@ -340,3 +340,8 @@ config/config.yaml
 git.diff
 
 .trae
+
+.tmp/*
+
+logs
+tmp/insurai
