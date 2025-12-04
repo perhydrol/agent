@@ -2,7 +2,9 @@ package redis
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/perhydrol/insurance-agent-backend/pkg/middleware"
 	"go.uber.org/zap"
 )
 
@@ -13,7 +15,12 @@ type Logger struct {
 
 // Printf 按格式输出日志
 func (l *Logger) Printf(ctx context.Context, format string, v ...interface{}) {
-	l.zapLogger.Sugar().Infof(format, v...)
+	message := fmt.Sprintf(format, v...)
+	traceID := middleware.GetTraceID(ctx)
+	l.zapLogger.Sugar().Infow(
+		message,
+		zap.String(middleware.TraceIDKey, traceID),
+	)
 }
 
 // NewLogger 创建 Logger

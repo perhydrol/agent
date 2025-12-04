@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/perhydrol/insurance-agent-backend/pkg/config"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
+	"github.com/perhydrol/insurance-agent-backend/pkg/middleware"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -13,7 +14,7 @@ import (
 func SetupRouter(cfg config.ServerConfig) *gin.Engine {
 	gin.SetMode(cfg.Mode)
 	r := gin.Default()
-	r.Use(logger.GinLogger(), logger.GinRecovery(cfg.Stack))
+	r.Use(middleware.GinTraceID(), logger.GinLogger(), logger.GinRecovery(cfg.Stack))
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 

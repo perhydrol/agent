@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/perhydrol/insurance-agent-backend/pkg/middleware"
 	"go.uber.org/zap"
 )
 
@@ -17,6 +18,7 @@ func GinLogger() gin.HandlerFunc {
 
 		cost := time.Since(start)
 		Log.Info(path,
+			zap.String(middleware.TraceIDKey, c.GetHeader("X-Request-ID")),
 			zap.Int("status", c.Writer.Status()),
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
