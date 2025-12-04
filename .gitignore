@@ -338,3 +338,5 @@ pyrightconfig.json
 config/config.yaml
 
 git.diff
+
+.trae
