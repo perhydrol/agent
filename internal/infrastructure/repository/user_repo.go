@@ -9,7 +9,7 @@ import (
 	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/cache"
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
-	"github.com/perhydrol/insurance-agent-backend/pkg/middleware"
+	traceid "github.com/perhydrol/insurance-agent-backend/pkg/traceID"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -29,29 +29,63 @@ func NewUerRepository(db *gorm.DB, redis cache.UserCache) domain.UserRepository 
 func (r *userRepo) RegisterUser(ctx context.Context, user *domain.User) error {
 	return r.db.WithContext(ctx).Create(user).Error
 }
-func (r *userRepo) GetUserName(ctx context.Context, username string) (*domain.User, error) {
-	userP, err := r.redis.Get(ctx, username)
-	if err == nil && userP != nil {
-		return userP, nil
-	} else if err != nil {
-		logger.Log.Error("redis error", zap.Error(err))
+
+func (r *userRepo) asyncCacheUser(ctx context.Context, user *domain.User) {
+	go func() {
+		tempCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		bgCtx := context.WithValue(tempCtx, traceid.ContextTraceIDKey, traceid.GetTraceID(ctx))
+		defer cancel()
+
+		//nolint:gosec
+		ttl := time.Hour + time.Duration(rand.Intn(180))*time.Second
+		if err := r.redis.Set(bgCtx, user, ttl); err != nil {
+			logger.Log.Error("redis set error", zap.Error(err))
+		}
+	}()
+}
+
+func (r *userRepo) GetUserByName(ctx context.Context, username string) (*domain.User, error) {
+	user, err := r.redis.GetByName(ctx, username)
+	if err == nil && user != nil {
+		return user, nil
 	}
-	var user domain.User
-	err = r.db.WithContext(ctx).Where("username=?", username).First(&user).Error
+	if err != nil {
+		logger.Log.Error("redis get error", zap.Error(err))
+	}
+
+	var dbUser domain.User
+	err = r.db.WithContext(ctx).Where("username = ?", username).First(&dbUser).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
+	if err != nil {
+		return nil, err
+	}
 
-	go func() {
-		// 注意：这里新建一个 context，因为请求的 ctx 可能很快就 cancel 了
-		tempCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		bgCtx := context.WithValue(tempCtx, middleware.ContextTraceIDKey, middleware.GetTraceID(ctx))
-		defer cancel()
+	r.asyncCacheUser(ctx, &dbUser)
 
-		//nolint:gosec // G404: Use of weak random number generator is acceptable for cache jitter.
-		if setErr := r.redis.Set(bgCtx, &user, time.Hour+time.Duration(rand.Intn(180))*time.Second); setErr != nil {
-			logger.Log.Error("redis error", zap.Error(setErr))
-		}
-	}()
-	return &user, err
+	return &dbUser, nil
+}
+
+func (r *userRepo) GetUserByID(ctx context.Context, id int64) (*domain.User, error) {
+	user, err := r.redis.GetByID(ctx, id)
+	if err == nil && user != nil {
+		return user, nil
+	}
+	if err != nil {
+		logger.Log.Error("redis get error", zap.Error(err))
+	}
+
+	var dbUser domain.User
+	err = r.db.WithContext(ctx).First(&dbUser, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	r.asyncCacheUser(ctx, &dbUser)
+
+	return &dbUser, nil
 }

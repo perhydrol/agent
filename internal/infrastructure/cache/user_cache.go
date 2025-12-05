@@ -11,9 +11,10 @@ import (
 )
 
 type UserCache interface {
-	Get(ctx context.Context, username string) (*domain.User, error)
+	GetByName(ctx context.Context, username string) (*domain.User, error)
+	GetByID(ctx context.Context, id int64) (*domain.User, error)
 	Set(ctx context.Context, user *domain.User, ttl time.Duration) error
-	Delete(ctx context.Context, username string) error
+	Del(ctx context.Context, user *domain.User) error
 }
 
 type userCache struct {
@@ -24,8 +25,7 @@ func NewUserCache(rdb *redis.Client) UserCache {
 	return &userCache{rdb: rdb}
 }
 
-func (c *userCache) Get(ctx context.Context, username string) (*domain.User, error) {
-	key := fmt.Sprintf("user:username:%s", username)
+func (c *userCache) get(ctx context.Context, key string) (*domain.User, error) {
 	data, err := c.rdb.Get(ctx, key).Bytes()
 	if err == redis.Nil {
 		return nil, nil
@@ -38,16 +38,38 @@ func (c *userCache) Get(ctx context.Context, username string) (*domain.User, err
 	return &user, nil
 }
 
+func (c *userCache) GetByName(ctx context.Context, username string) (*domain.User, error) {
+	key := fmt.Sprintf("user:username:%s", username)
+	return c.get(ctx, key)
+}
+
+func (c *userCache) GetByID(ctx context.Context, id int64) (*domain.User, error) {
+	key := fmt.Sprintf("user:id:%d", id)
+	return c.get(ctx, key)
+}
+
 func (c *userCache) Set(ctx context.Context, user *domain.User, ttl time.Duration) error {
-	key := fmt.Sprintf("user:username:%s", user.Username)
+	keyName := fmt.Sprintf("user:username:%s", user.Username)
+	keyId := fmt.Sprintf("user:id:%d", user.ID)
 	data, err := json.Marshal(user)
 	if err != nil {
 		return err
 	}
-	return c.rdb.Set(ctx, key, data, ttl).Err()
+	pipe := c.rdb.Pipeline()
+	pipe.Set(ctx, keyId, data, ttl)
+	pipe.Set(ctx, keyName, data, ttl)
+	_, err = pipe.Exec(ctx)
+	return err
 }
 
-func (c *userCache) Delete(ctx context.Context, username string) error {
-	key := fmt.Sprintf("user:username:%s", username)
-	return c.rdb.Del(ctx, key).Err()
+func (c *userCache) Del(ctx context.Context, user *domain.User) error {
+	keyName := fmt.Sprintf("user:username:%s", user.Username)
+	keyId := fmt.Sprintf("user:id:%d", user.ID)
+
+	pipe := c.rdb.Pipeline()
+	pipe.Del(ctx, keyName)
+	pipe.Del(ctx, keyId)
+
+	_, err := pipe.Exec(ctx)
+	return err
 }

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/perhydrol/insurance-agent-backend/pkg/middleware"
+	traceid "github.com/perhydrol/insurance-agent-backend/pkg/traceID"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -45,7 +45,7 @@ func (h *ZapLogHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 		cost := time.Since(start)
 
 		fields := []zap.Field{
-			zap.String(middleware.TraceIDKey, middleware.GetTraceID(ctx)),
+			zap.String(traceid.TraceIDKey, traceid.GetTraceID(ctx)),
 			zap.String("cmd", cmd.Name()),
 			zap.String("args", cutString(fmt.Sprintf("%v", cmd.Args()), h.logMaxLen)),
 			zap.Duration("cost", cost),
@@ -77,7 +77,7 @@ func (h *ZapLogHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.P
 
 		// 为了日志简洁，这里只记录命令个数和摘要，详细内容仅在 Debug/Error 时打印
 		fields := []zap.Field{
-			zap.String(middleware.TraceIDKey, middleware.GetTraceID(ctx)),
+			zap.String(traceid.TraceIDKey, traceid.GetTraceID(ctx)),
 			zap.String("type", "pipeline"),
 			zap.Int("cmd_count", len(cmds)),
 			zap.Duration("cost", cost),

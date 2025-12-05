@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/perhydrol/insurance-agent-backend/pkg/middleware"
+	traceid "github.com/perhydrol/insurance-agent-backend/pkg/traceID"
 	"go.uber.org/zap"
 )
 
@@ -16,10 +16,10 @@ type Logger struct {
 // Printf 按格式输出日志
 func (l *Logger) Printf(ctx context.Context, format string, v ...interface{}) {
 	message := fmt.Sprintf(format, v...)
-	traceID := middleware.GetTraceID(ctx)
+	traceID := traceid.GetTraceID(ctx)
 	l.zapLogger.Sugar().Infow(
 		message,
-		zap.String(middleware.TraceIDKey, traceID),
+		zap.String(traceid.TraceIDKey, traceID),
 	)
 }
 

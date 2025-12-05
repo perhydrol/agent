@@ -13,7 +13,7 @@ import (
 
 func SetupRouter(cfg config.ServerConfig) *gin.Engine {
 	gin.SetMode(cfg.Mode)
-	r := gin.Default()
+	r := gin.New()
 	r.Use(middleware.GinTraceID(), logger.GinLogger(), logger.GinRecovery(cfg.Stack))
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))

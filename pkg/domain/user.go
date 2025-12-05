@@ -31,5 +31,6 @@ func (o *User) BeforeCreate(tx *gorm.DB) (err error) {
 
 type UserRepository interface {
 	RegisterUser(ctx context.Context, user *User) error
-	GetUserName(ctx context.Context, username string) (*User, error)
+	GetUserByName(ctx context.Context, username string) (*User, error)
+	GetUserByID(ctx context.Context, id int64) (*User, error)
 }
