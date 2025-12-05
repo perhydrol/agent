@@ -27,7 +27,7 @@ func InitLogger(cfg config.LogConfig) {
 			zapcore.NewCore(encoder, writeSyncer, level),                            // 写入文件
 			zapcore.NewCore(getConsoleEncoder(), zapcore.AddSync(os.Stdout), level), // 写入控制台
 		)
-		Log = zap.New(core, zap.AddCaller())
+		Log = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
 		zap.ReplaceGlobals(Log) // 替换全局的log
 	})
 }

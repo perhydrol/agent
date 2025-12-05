@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"time"
 
 	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/cache"
@@ -36,9 +35,7 @@ func (r *userRepo) asyncCacheUser(ctx context.Context, user *domain.User) {
 		bgCtx := context.WithValue(tempCtx, traceid.ContextTraceIDKey, traceid.GetTraceID(ctx))
 		defer cancel()
 
-		//nolint:gosec
-		ttl := time.Hour + time.Duration(rand.Intn(180))*time.Second
-		if err := r.redis.Set(bgCtx, user, ttl); err != nil {
+		if err := r.redis.Set(bgCtx, user); err != nil {
 			logger.Log.Error("redis set error", zap.Error(err))
 		}
 	}()

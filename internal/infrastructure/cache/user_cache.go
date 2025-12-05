@@ -4,16 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
+	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 type UserCache interface {
 	GetByName(ctx context.Context, username string) (*domain.User, error)
 	GetByID(ctx context.Context, id int64) (*domain.User, error)
-	Set(ctx context.Context, user *domain.User, ttl time.Duration) error
+	Set(ctx context.Context, user *domain.User) error
 	Del(ctx context.Context, user *domain.User) error
 }
 
@@ -27,13 +30,21 @@ func NewUserCache(rdb *redis.Client) UserCache {
 
 func (c *userCache) get(ctx context.Context, key string) (*domain.User, error) {
 	data, err := c.rdb.Get(ctx, key).Bytes()
-	if err == redis.Nil {
-		return nil, nil
+	if err != nil {
+		if err == redis.Nil {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get user %s from cache: %w", key, err)
 	}
-
 	var user domain.User
 	if err := json.Unmarshal(data, &user); err != nil {
-		return nil, err
+		logger.Log.Error("Failed to unmarshal user from Redis",
+			zap.String("key", key),
+			zap.ByteString("data", data), // 记录原始数据有助于调试
+			zap.Error(err),
+		)
+		_ = c.rdb.Del(ctx, key)
+		return nil, nil
 	}
 	return &user, nil
 }
@@ -48,18 +59,20 @@ func (c *userCache) GetByID(ctx context.Context, id int64) (*domain.User, error)
 	return c.get(ctx, key)
 }
 
-func (c *userCache) Set(ctx context.Context, user *domain.User, ttl time.Duration) error {
+func (c *userCache) Set(ctx context.Context, user *domain.User) error {
 	keyName := fmt.Sprintf("user:username:%s", user.Username)
 	keyId := fmt.Sprintf("user:id:%d", user.ID)
 	data, err := json.Marshal(user)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal user id %d: %w", user.ID, err)
 	}
+	//nolint:gosec
+	ttl := time.Hour + time.Duration(rand.Intn(180))*time.Second
 	pipe := c.rdb.Pipeline()
 	pipe.Set(ctx, keyId, data, ttl)
 	pipe.Set(ctx, keyName, data, ttl)
 	_, err = pipe.Exec(ctx)
-	return err
+	return fmt.Errorf("failed to set user id %d in cache: %w", user.ID, err)
 }
 
 func (c *userCache) Del(ctx context.Context, user *domain.User) error {
@@ -71,5 +84,8 @@ func (c *userCache) Del(ctx context.Context, user *domain.User) error {
 	pipe.Del(ctx, keyId)
 
 	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete user id %d from cache: %w", user.ID, err)
+	}
 	return err
 }
