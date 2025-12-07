@@ -14,8 +14,8 @@ import (
 )
 
 type ProductCache interface {
-	GetByID(ctx context.Context, id int64) (*domain.Product, error)
-	SetByID(ctx context.Context, id int64, p *domain.Product) error
+	GetByID(ctx context.Context, id int64) *domain.Product
+	Set(ctx context.Context, p *domain.Product) error
 	DelByID(ctx context.Context, id int64) error
 }
 
@@ -27,14 +27,18 @@ func NewProductCache(rdb *redis.Client) ProductCache {
 	return &productCache{rdb: rdb}
 }
 
-func (c *productCache) GetByID(ctx context.Context, id int64) (*domain.Product, error) {
+func (c *productCache) GetByID(ctx context.Context, id int64) *domain.Product {
 	key := fmt.Sprintf("product:id:%d", id)
 	data, err := c.rdb.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
-			return nil, nil
+			return nil
 		}
-		return nil, fmt.Errorf("failed to get product %d from cache: %w", id, err)
+		logger.Log.Error("failed to get product from redis",
+			zap.Int64("productId", id),
+			zap.Error(err),
+		)
+		return nil
 	}
 	var p domain.Product
 	if err := json.Unmarshal(data, &p); err != nil {
@@ -47,21 +51,21 @@ func (c *productCache) GetByID(ctx context.Context, id int64) (*domain.Product, 
 		_ = c.rdb.Del(ctx, key)
 
 		// 返回 nil, nil 假装缓存没命中，让上层去查 DB 重新回填
-		return nil, nil
+		return nil
 	}
-	return &p, nil
+	return &p
 }
 
-func (c *productCache) SetByID(ctx context.Context, id int64, p *domain.Product) error {
-	key := fmt.Sprintf("product:id:%d", id)
+func (c *productCache) Set(ctx context.Context, p *domain.Product) error {
+	key := fmt.Sprintf("product:id:%d", p.ID)
 	data, err := json.Marshal(p)
 	if err != nil {
-		return fmt.Errorf("failed to marshal product %d: %w", id, err)
+		return fmt.Errorf("failed to marshal product %d: %w", p.ID, err)
 	}
 	//nolint:gosec
 	ttl := time.Hour + time.Duration(rand.Intn(180))*time.Second
 	if err := c.rdb.Set(ctx, key, data, ttl).Err(); err != nil {
-		return fmt.Errorf("failed to set product %d in cache: %w", id, err)
+		return fmt.Errorf("failed to set product %d in cache: %w", p.ID, err)
 	}
 	return nil
 }

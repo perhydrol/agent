@@ -15,13 +15,13 @@ import (
 
 type userRepo struct {
 	db    *gorm.DB
-	redis cache.UserCache
+	cache cache.UserCache
 }
 
-func NewUerRepository(db *gorm.DB, redis cache.UserCache) domain.UserRepository {
+func NewUerRepository(db *gorm.DB, cache cache.UserCache) domain.UserRepository {
 	return &userRepo{
 		db:    db,
-		redis: redis,
+		cache: cache,
 	}
 }
 
@@ -35,19 +35,19 @@ func (r *userRepo) asyncCacheUser(ctx context.Context, user *domain.User) {
 		bgCtx := context.WithValue(tempCtx, traceid.ContextTraceIDKey, traceid.GetTraceID(ctx))
 		defer cancel()
 
-		if err := r.redis.Set(bgCtx, user); err != nil {
-			logger.Log.Error("redis set error", zap.Error(err))
+		if err := r.cache.Set(bgCtx, user); err != nil {
+			logger.Log.Error("cache set error", zap.Error(err))
 		}
 	}()
 }
 
 func (r *userRepo) GetUserByName(ctx context.Context, username string) (*domain.User, error) {
-	user, err := r.redis.GetByName(ctx, username)
+	user, err := r.cache.GetByName(ctx, username)
 	if err == nil && user != nil {
 		return user, nil
 	}
 	if err != nil {
-		logger.Log.Error("redis get error", zap.Error(err))
+		logger.Log.Error("cache get error", zap.Error(err))
 	}
 
 	var dbUser domain.User
@@ -65,12 +65,12 @@ func (r *userRepo) GetUserByName(ctx context.Context, username string) (*domain.
 }
 
 func (r *userRepo) GetUserByID(ctx context.Context, id int64) (*domain.User, error) {
-	user, err := r.redis.GetByID(ctx, id)
+	user, err := r.cache.GetByID(ctx, id)
 	if err == nil && user != nil {
 		return user, nil
 	}
 	if err != nil {
-		logger.Log.Error("redis get error", zap.Error(err))
+		logger.Log.Error("cache get error", zap.Error(err))
 	}
 
 	var dbUser domain.User
