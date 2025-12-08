@@ -186,11 +186,71 @@ func (r *orderRepo) UpdateStatus(
 	status domain.OrderStatus,
 	prevStatus domain.OrderStatus,
 ) error {
-	// TODO
+	var o domain.Order
+	if err := r.db.WithContext(ctx).First(&o, id).Error; err != nil {
+		return fmt.Errorf("failed to find order %d: %w", id, err)
+	}
+
+	if o.Status != prevStatus {
+		return fmt.Errorf("order status mismatch: expected %d, got %d", prevStatus, o.Status)
+	}
+
+	o.Status = status
+
+	result := r.db.WithContext(ctx).Save(&o)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to update order status: %w", result.Error)
+	}
+
+	// 关键：如果受影响行数为 0，说明 Version 对不上（被别人改过了）
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("optimistic lock conflict: order modified by others")
+	}
+
+	tempCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	delCtx := context.WithValue(tempCtx, traceid.ContextTraceIDKey, traceid.GetTraceID(ctx))
+	defer cancel()
+
+	if err := r.cache.DelByID(delCtx, id); err != nil {
+		logger.Log.Error("failed to invalidate order cache after update",
+			zap.Int64("id", id),
+			zap.Error(err))
+	}
 	return nil
 }
 
 func (r *orderRepo) UpdatePolicy(ctx context.Context, id int64, policyNumber string) error {
-	// TODO
+	var o domain.Order
+	if err := r.db.WithContext(ctx).First(&o, id).Error; err != nil {
+		return fmt.Errorf("failed to find order %d: %w", id, err)
+	}
+
+	if len(o.PolicyNumber) != 0 && o.PolicyNumber != policyNumber {
+		return fmt.Errorf("order PolicyNumber mismatch")
+	}
+
+	o.PolicyNumber = policyNumber
+
+	result := r.db.WithContext(ctx).Save(&o)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to update order policyNumber: %w", result.Error)
+	}
+
+	// 关键：如果受影响行数为 0，说明 Version 对不上（被别人改过了）
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("optimistic lock conflict: order modified by others")
+	}
+
+	tempCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	delCtx := context.WithValue(tempCtx, traceid.ContextTraceIDKey, traceid.GetTraceID(ctx))
+	defer cancel()
+
+	if err := r.cache.DelByID(delCtx, id); err != nil {
+		logger.Log.Error("failed to invalidate order cache after update",
+			zap.Int64("id", id),
+			zap.Error(err))
+	}
 	return nil
 }

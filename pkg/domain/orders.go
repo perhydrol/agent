@@ -6,6 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
+	"gorm.io/plugin/optimisticlock"
 )
 
 type OrderStatus int
@@ -41,7 +42,7 @@ type Order struct {
 
 	// 5. 乐观锁版本号
 	// json:"-": 这是一个内部技术字段，不需要暴露给前端 API
-	Version int `gorm:"default:1" json:"-"`
+	Version optimisticlock.Version `gorm:"default:1" json:"-"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
