@@ -36,7 +36,12 @@ func (r *productRepo) asyncCacheProduct(ctx context.Context, p *domain.Product) 
 		defer cancel()
 
 		if err := r.cache.Set(bgCtx, p); err != nil {
-			logger.Log.Error("redis set error", zap.Int64("product_id", p.ID), zap.Error(err))
+			logger.Log.Error(
+				"redis set error",
+				zap.Int64("product_id", p.ID),
+				zap.Error(err),
+				zap.String(traceid.TraceIDKey, traceid.GetTraceID(bgCtx)),
+			)
 		}
 	}()
 }
@@ -46,16 +51,29 @@ func (r *productRepo) FindByID(ctx context.Context, id int64) (*domain.Product, 
 	if productP != nil {
 		return productP, nil
 	}
-	var p domain.Product
-	err := r.db.WithContext(ctx).First(&p, id).Error
+	v, err, _ := r.sf.Do(
+		fmt.Sprintf("product:FindByID:%d", id),
+		func() (any, error) {
+			var p domain.Product
+			e := r.db.WithContext(ctx).First(&p, id).Error
+			if e != nil {
+				return nil, e
+			}
+			return &p, nil
+		},
+	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("Unable to get data with Product ID %d from DB, err:%w", id, err)
 	}
-	r.asyncCacheProduct(ctx, &p)
-	return &p, err
+	prod, ok := v.(*domain.Product)
+	if !ok {
+		return nil, fmt.Errorf("type assert *domain.Product failed")
+	}
+	r.asyncCacheProduct(ctx, prod)
+	return prod, nil
 }
 
 func (r *productRepo) List(ctx context.Context, offset, limit int, category string) ([]*domain.Product, int64, error) {
@@ -68,12 +86,41 @@ func (r *productRepo) List(ctx context.Context, offset, limit int, category stri
 	}
 
 	// 先 Count (必须在 Offset 之前)
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
+	tRes, errCount, _ := r.sf.Do(fmt.Sprintf("product:List:count:%s", category), func() (any, error) {
+		var c int64
+		if e := query.Count(&c).Error; e != nil {
+			return nil, e
+		}
+		return c, nil
+	})
+	if errCount != nil {
+		return nil, 0, errCount
 	}
+	t, ok := tRes.(int64)
+	if !ok {
+		return nil, 0, fmt.Errorf("type assert int64 failed")
+	}
+	total = t
 
 	// Order by id desc 是为了让新上架的产品在前面
-	err := query.Order("id desc").Offset(offset).Limit(limit).Find(&products).Error
+	dRes, errData, _ := r.sf.Do(
+		fmt.Sprintf("product:List:data:%d:%d:%s", offset, limit, category),
+		func() (any, error) {
+			var list []*domain.Product
+			if e := query.Order("id desc").Offset(offset).Limit(limit).Find(&list).Error; e != nil {
+				return nil, e
+			}
+			return list, nil
+		},
+	)
 
-	return products, total, err
+	if errData != nil {
+		return nil, 0, errData
+	}
+	list, ok := dRes.([]*domain.Product)
+	if !ok {
+		return nil, 0, fmt.Errorf("type assert []*domain.Product failed")
+	}
+	products = list
+	return products, total, nil
 }

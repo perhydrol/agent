@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -39,7 +40,11 @@ func (r *userRepo) asyncCacheUser(ctx context.Context, user *domain.User) {
 		defer cancel()
 
 		if err := r.cache.Set(bgCtx, user); err != nil {
-			logger.Log.Error("cache set error", zap.Error(err))
+			logger.Log.Error(
+				"cache set error",
+				zap.Error(err),
+				zap.String(traceid.TraceIDKey, traceid.GetTraceID(bgCtx)),
+			)
 		}
 	}()
 }
@@ -50,11 +55,17 @@ func (r *userRepo) GetUserByName(ctx context.Context, username string) (*domain.
 		return user, nil
 	}
 	if err != nil {
-		logger.Log.Error("cache get error", zap.Error(err))
+		logger.Log.Error("cache get error", zap.Error(err), zap.String(traceid.TraceIDKey, traceid.GetTraceID(ctx)))
 	}
 
-	var dbUser domain.User
-	err = r.db.WithContext(ctx).Where("username = ?", username).First(&dbUser).Error
+	v, err, _ := r.sf.Do(fmt.Sprintf("user:GetByName:%s", username), func() (any, error) {
+		var u domain.User
+		e := r.db.WithContext(ctx).Where("username = ?", username).First(&u).Error
+		if e != nil {
+			return nil, e
+		}
+		return &u, nil
+	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -62,9 +73,13 @@ func (r *userRepo) GetUserByName(ctx context.Context, username string) (*domain.
 		return nil, err
 	}
 
-	r.asyncCacheUser(ctx, &dbUser)
+	dbUser, ok := v.(*domain.User)
+	if !ok {
+		return nil, fmt.Errorf("type assert *domain.User failed")
+	}
+	r.asyncCacheUser(ctx, dbUser)
 
-	return &dbUser, nil
+	return dbUser, nil
 }
 
 func (r *userRepo) GetUserByID(ctx context.Context, id int64) (*domain.User, error) {
@@ -73,11 +88,17 @@ func (r *userRepo) GetUserByID(ctx context.Context, id int64) (*domain.User, err
 		return user, nil
 	}
 	if err != nil {
-		logger.Log.Error("cache get error", zap.Error(err))
+		logger.Log.Error("cache get error", zap.Error(err), zap.String(traceid.TraceIDKey, traceid.GetTraceID(ctx)))
 	}
 
-	var dbUser domain.User
-	err = r.db.WithContext(ctx).First(&dbUser, id).Error
+	v, err, _ := r.sf.Do(fmt.Sprintf("user:GetByID:%d", id), func() (any, error) {
+		var u domain.User
+		e := r.db.WithContext(ctx).First(&u, id).Error
+		if e != nil {
+			return nil, e
+		}
+		return &u, nil
+	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -85,7 +106,11 @@ func (r *userRepo) GetUserByID(ctx context.Context, id int64) (*domain.User, err
 		return nil, err
 	}
 
-	r.asyncCacheUser(ctx, &dbUser)
+	dbUser, ok := v.(*domain.User)
+	if !ok {
+		return nil, fmt.Errorf("type assert *domain.User failed")
+	}
+	r.asyncCacheUser(ctx, dbUser)
 
-	return &dbUser, nil
+	return dbUser, nil
 }
