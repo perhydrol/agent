@@ -10,6 +10,7 @@ import (
 
 	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/cache"
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
+	"github.com/perhydrol/insurance-agent-backend/pkg/errno"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	traceid "github.com/perhydrol/insurance-agent-backend/pkg/traceID"
 	"go.uber.org/zap"
@@ -30,7 +31,10 @@ func NewUerRepository(db *gorm.DB, cache cache.UserCache) domain.UserRepository 
 }
 
 func (r *userRepo) RegisterUser(ctx context.Context, user *domain.User) error {
-	return r.db.WithContext(ctx).Create(user).Error
+	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
+		return errno.ErrRepoDB.WithCause(err)
+	}
+	return nil
 }
 
 func (r *userRepo) asyncCacheUser(ctx context.Context, user *domain.User) {
@@ -70,12 +74,12 @@ func (r *userRepo) GetUserByName(ctx context.Context, username string) (*domain.
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, errno.ErrRepoDB.WithCause(err)
 	}
 
 	dbUser, ok := v.(*domain.User)
 	if !ok {
-		return nil, fmt.Errorf("type assert *domain.User failed")
+		return nil, errno.ErrRepoTypeAssert.WithCause(fmt.Errorf("type assert *domain.User failed"))
 	}
 	r.asyncCacheUser(ctx, dbUser)
 
@@ -103,12 +107,12 @@ func (r *userRepo) GetUserByID(ctx context.Context, id int64) (*domain.User, err
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, errno.ErrRepoDB.WithCause(err)
 	}
 
 	dbUser, ok := v.(*domain.User)
 	if !ok {
-		return nil, fmt.Errorf("type assert *domain.User failed")
+		return nil, errno.ErrRepoTypeAssert.WithCause(fmt.Errorf("type assert *domain.User failed"))
 	}
 	r.asyncCacheUser(ctx, dbUser)
 

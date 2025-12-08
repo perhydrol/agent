@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
+	"github.com/perhydrol/insurance-agent-backend/pkg/errno"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -60,12 +61,12 @@ func (c *productCache) Set(ctx context.Context, p *domain.Product) error {
 	key := fmt.Sprintf("product:id:%d", p.ID)
 	data, err := json.Marshal(p)
 	if err != nil {
-		return fmt.Errorf("failed to marshal product %d: %w", p.ID, err)
+		return errno.ErrCacheMarshalFailed.WithCause(err)
 	}
 	//nolint:gosec
 	ttl := time.Hour + time.Duration(rand.Intn(180))*time.Second
 	if err := c.rdb.Set(ctx, key, data, ttl).Err(); err != nil {
-		return fmt.Errorf("failed to set product %d in cache: %w", p.ID, err)
+		return errno.ErrCacheSetFailed.WithCause(err)
 	}
 	return nil
 }
@@ -73,7 +74,7 @@ func (c *productCache) DelByID(ctx context.Context, id int64) error {
 	key := fmt.Sprintf("product:id:%d", id)
 	err := c.rdb.Del(ctx, key).Err()
 	if err != nil {
-		return fmt.Errorf("failed to delete product %d from cache: %w", id, err)
+		return errno.ErrCacheDelFailed.WithCause(err)
 	}
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
+	"github.com/perhydrol/insurance-agent-backend/pkg/errno"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -34,7 +35,7 @@ func (c *userCache) get(ctx context.Context, key string) (*domain.User, error) {
 		if err == redis.Nil {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to get user %s from cache: %w", key, err)
+		return nil, errno.ErrCacheGetFailed.WithCause(err)
 	}
 	var user domain.User
 	if err := json.Unmarshal(data, &user); err != nil {
@@ -64,7 +65,7 @@ func (c *userCache) Set(ctx context.Context, user *domain.User) error {
 	keyId := fmt.Sprintf("user:id:%d", user.ID)
 	data, err := json.Marshal(user)
 	if err != nil {
-		return fmt.Errorf("failed to marshal user id %d: %w", user.ID, err)
+		return errno.ErrCacheMarshalFailed.WithCause(err)
 	}
 	//nolint:gosec
 	ttl := time.Hour + time.Duration(rand.Intn(180))*time.Second
@@ -72,7 +73,7 @@ func (c *userCache) Set(ctx context.Context, user *domain.User) error {
 	pipe.Set(ctx, keyId, data, ttl)
 	pipe.Set(ctx, keyName, data, ttl)
 	_, err = pipe.Exec(ctx)
-	return fmt.Errorf("failed to set user id %d in cache: %w", user.ID, err)
+	return errno.ErrCacheSetFailed.WithCause(err)
 }
 
 func (c *userCache) Del(ctx context.Context, user *domain.User) error {
@@ -85,7 +86,7 @@ func (c *userCache) Del(ctx context.Context, user *domain.User) error {
 
 	_, err := pipe.Exec(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to delete user id %d from cache: %w", user.ID, err)
+		return errno.ErrCacheDelFailed.WithCause(err)
 	}
 	return err
 }

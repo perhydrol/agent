@@ -10,6 +10,7 @@ import (
 
 	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/cache"
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
+	"github.com/perhydrol/insurance-agent-backend/pkg/errno"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	traceid "github.com/perhydrol/insurance-agent-backend/pkg/traceID"
 	"go.uber.org/zap"
@@ -66,11 +67,11 @@ func (r *productRepo) FindByID(ctx context.Context, id int64) (*domain.Product, 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Unable to get data with Product ID %d from DB, err:%w", id, err)
+		return nil, errno.ErrRepoDB.WithCause(err)
 	}
 	prod, ok := v.(*domain.Product)
 	if !ok {
-		return nil, fmt.Errorf("type assert *domain.Product failed")
+		return nil, errno.ErrRepoTypeAssert.WithCause(fmt.Errorf("type assert *domain.Product failed"))
 	}
 	r.asyncCacheProduct(ctx, prod)
 	return prod, nil
@@ -94,11 +95,11 @@ func (r *productRepo) List(ctx context.Context, offset, limit int, category stri
 		return c, nil
 	})
 	if errCount != nil {
-		return nil, 0, errCount
+		return nil, 0, errno.ErrRepoDB.WithCause(errCount)
 	}
 	t, ok := tRes.(int64)
 	if !ok {
-		return nil, 0, fmt.Errorf("type assert int64 failed")
+		return nil, 0, errno.ErrRepoTypeAssert.WithCause(fmt.Errorf("type assert int64 failed"))
 	}
 	total = t
 
@@ -115,11 +116,11 @@ func (r *productRepo) List(ctx context.Context, offset, limit int, category stri
 	)
 
 	if errData != nil {
-		return nil, 0, errData
+		return nil, 0, errno.ErrRepoDB.WithCause(errData)
 	}
 	list, ok := dRes.([]*domain.Product)
 	if !ok {
-		return nil, 0, fmt.Errorf("type assert []*domain.Product failed")
+		return nil, 0, errno.ErrRepoTypeAssert.WithCause(fmt.Errorf("type assert []*domain.Product failed"))
 	}
 	products = list
 	return products, total, nil

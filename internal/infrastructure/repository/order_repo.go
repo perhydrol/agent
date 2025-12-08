@@ -10,6 +10,7 @@ import (
 
 	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/cache"
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
+	"github.com/perhydrol/insurance-agent-backend/pkg/errno"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	traceid "github.com/perhydrol/insurance-agent-backend/pkg/traceID"
 	"go.uber.org/zap"
@@ -39,7 +40,7 @@ func (r *orderRepo) Create(ctx context.Context, order *domain.Order) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create new order: %w", err)
+		return errno.ErrRepoDB.WithCause(err)
 	}
 	go func() {
 		tempCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -80,11 +81,11 @@ func (r *orderRepo) FindByID(ctx context.Context, id int64) (*domain.Order, erro
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to get Order (id %d) from DB: %w", id, err)
+		return nil, errno.ErrRepoDB.WithCause(err)
 	}
 	o, ok := v.(*domain.Order)
 	if !ok {
-		return nil, fmt.Errorf("type assert *domain.Order failed")
+		return nil, errno.ErrRepoTypeAssert.WithCause(fmt.Errorf("type assert *domain.Order failed"))
 	}
 	order := *o
 	go func(order domain.Order) {
@@ -150,11 +151,11 @@ func (r *orderRepo) FindUserAllOrderID(ctx context.Context, userID int64) ([]int
 		return ids, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to find user's order list: %w", err)
+		return nil, errno.ErrRepoDB.WithCause(err)
 	}
 	ids, ok := v.([]int64)
 	if !ok {
-		return nil, fmt.Errorf("type assert []int64 failed")
+		return nil, errno.ErrRepoTypeAssert.WithCause(fmt.Errorf("type assert []int64 failed"))
 	}
 	go func() {
 		tempCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -188,11 +189,11 @@ func (r *orderRepo) UpdateStatus(
 ) error {
 	var o domain.Order
 	if err := r.db.WithContext(ctx).First(&o, id).Error; err != nil {
-		return fmt.Errorf("failed to find order %d: %w", id, err)
+		return errno.ErrRepoDB.WithCause(err)
 	}
 
 	if o.Status != prevStatus {
-		return fmt.Errorf("order status mismatch: expected %d, got %d", prevStatus, o.Status)
+		return errno.ErrRepoDB.WithCause(fmt.Errorf("order status mismatch: expected %d, got %d", prevStatus, o.Status))
 	}
 
 	o.Status = status
@@ -200,12 +201,12 @@ func (r *orderRepo) UpdateStatus(
 	result := r.db.WithContext(ctx).Save(&o)
 
 	if result.Error != nil {
-		return fmt.Errorf("failed to update order status: %w", result.Error)
+		return errno.ErrRepoDB.WithCause(result.Error)
 	}
 
 	// 关键：如果受影响行数为 0，说明 Version 对不上（被别人改过了）
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("optimistic lock conflict: order modified by others")
+		return errno.ErrRepoDB.WithCause(fmt.Errorf("optimistic lock conflict: order modified by others"))
 	}
 
 	tempCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -223,11 +224,11 @@ func (r *orderRepo) UpdateStatus(
 func (r *orderRepo) UpdatePolicy(ctx context.Context, id int64, policyNumber string) error {
 	var o domain.Order
 	if err := r.db.WithContext(ctx).First(&o, id).Error; err != nil {
-		return fmt.Errorf("failed to find order %d: %w", id, err)
+		return errno.ErrRepoDB.WithCause(err)
 	}
 
 	if len(o.PolicyNumber) != 0 && o.PolicyNumber != policyNumber {
-		return fmt.Errorf("order PolicyNumber mismatch")
+		return errno.ErrRepoDB.WithCause(fmt.Errorf("order PolicyNumber mismatch"))
 	}
 
 	o.PolicyNumber = policyNumber
@@ -235,12 +236,12 @@ func (r *orderRepo) UpdatePolicy(ctx context.Context, id int64, policyNumber str
 	result := r.db.WithContext(ctx).Save(&o)
 
 	if result.Error != nil {
-		return fmt.Errorf("failed to update order policyNumber: %w", result.Error)
+		return errno.ErrRepoDB.WithCause(result.Error)
 	}
 
 	// 关键：如果受影响行数为 0，说明 Version 对不上（被别人改过了）
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("optimistic lock conflict: order modified by others")
+		return errno.ErrRepoDB.WithCause(fmt.Errorf("optimistic lock conflict: order modified by others"))
 	}
 
 	tempCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
+	"github.com/perhydrol/insurance-agent-backend/pkg/errno"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -94,7 +95,7 @@ func (c *orderCache) AddUserOrderID(ctx context.Context, userID int64, orderID i
 	key := fmt.Sprintf("order:user:%d", userID)
 	// RPushX 只有当 Key 存在时才追加；如果 Key 不存在，什么都不做，返回 0。
 	if err := c.rdb.RPushX(ctx, key, orderID).Err(); err != nil {
-		return fmt.Errorf("failed to add Order ID %d to User ID %d cache: %w", orderID, userID, err)
+		return errno.ErrCacheSetFailed.WithCause(err)
 	}
 	return nil
 }
@@ -123,7 +124,7 @@ func (c *orderCache) SetUserOrderIDs(ctx context.Context, userID int64, orderIDs
 
 	_, err := pipe.Exec(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to set order list for user %d: %w", userID, err)
+		return errno.ErrCacheSetFailed.WithCause(err)
 	}
 
 	return nil
@@ -133,7 +134,7 @@ func (c *orderCache) DelUserOrders(ctx context.Context, userID int64) error {
 	key := fmt.Sprintf("order:user:%d", userID)
 	err := c.rdb.Del(ctx, key).Err()
 	if err != nil {
-		return fmt.Errorf("failed to delete Order %d from cache: %w", userID, err)
+		return errno.ErrCacheDelFailed.WithCause(err)
 	}
 	return nil
 }
@@ -142,12 +143,12 @@ func (c *orderCache) SetOrder(ctx context.Context, order *domain.Order) error {
 	key := fmt.Sprintf("order:id:%d", order.ID)
 	data, err := json.Marshal(order)
 	if err != nil {
-		return fmt.Errorf("failed to marshal Order %d: %w", order.ID, err)
+		return errno.ErrCacheMarshalFailed.WithCause(err)
 	}
 	//nolint:gosec
 	ttl := time.Hour + time.Duration(rand.Intn(180))*time.Second
 	if err := c.rdb.Set(ctx, key, data, ttl).Err(); err != nil {
-		return fmt.Errorf("failed to set Order %d in cache: %w", order.ID, err)
+		return errno.ErrCacheSetFailed.WithCause(err)
 	}
 	return nil
 }
@@ -156,7 +157,7 @@ func (c *orderCache) DelByID(ctx context.Context, id int64) error {
 	key := fmt.Sprintf("order:id:%d", id)
 	err := c.rdb.Del(ctx, key).Err()
 	if err != nil {
-		return fmt.Errorf("failed to delete Order %d from cache: %w", id, err)
+		return errno.ErrCacheDelFailed.WithCause(err)
 	}
 	return nil
 }
