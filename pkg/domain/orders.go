@@ -60,6 +60,7 @@ type OrderRepository interface {
 	Create(ctx context.Context, order *Order) error
 	// 详情 & 轮询
 	FindByID(ctx context.Context, id int64) (*Order, error)
+	FindUserAllOrderID(ctx context.Context, userID int64) ([]int64, error)
 	// 支付成功回调：将状态改为 Paid
 	// 必须校验当前状态 (prevStatus)，防止重复支付
 	UpdateStatus(ctx context.Context, id int64, status OrderStatus, prevStatus OrderStatus) error

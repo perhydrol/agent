@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/cache"
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
@@ -16,6 +18,7 @@ import (
 type userRepo struct {
 	db    *gorm.DB
 	cache cache.UserCache
+	sf    singleflight.Group
 }
 
 func NewUerRepository(db *gorm.DB, cache cache.UserCache) domain.UserRepository {

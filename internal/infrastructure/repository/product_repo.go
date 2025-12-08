@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/cache"
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
@@ -17,6 +19,7 @@ import (
 type productRepo struct {
 	db    *gorm.DB
 	cache cache.ProductCache
+	sf    singleflight.Group
 }
 
 func NewProductRepository(db *gorm.DB, cache cache.ProductCache) domain.ProductRepository {
