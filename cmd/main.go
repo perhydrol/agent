@@ -10,6 +10,7 @@ import (
 
 	"github.com/perhydrol/insurance-agent-backend/cmd/server"
 	_ "github.com/perhydrol/insurance-agent-backend/docs"
+	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/repository"
 	"github.com/perhydrol/insurance-agent-backend/pkg/config"
 	"github.com/perhydrol/insurance-agent-backend/pkg/database"
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
@@ -29,6 +30,7 @@ func main() {
 	domain.InitIDGenerator(config.AppConfig.Snowflake.NodeID)
 	database.InitDB(config.AppConfig.Database)
 	redis.InitRedisDB(config.AppConfig.Redis)
+	repository.InitRepository(database.DB, redis.RDB)
 
 	r := server.SetupRouter(config.AppConfig.Server)
 

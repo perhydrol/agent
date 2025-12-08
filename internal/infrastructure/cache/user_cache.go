@@ -73,7 +73,10 @@ func (c *userCache) Set(ctx context.Context, user *domain.User) error {
 	pipe.Set(ctx, keyId, data, ttl)
 	pipe.Set(ctx, keyName, data, ttl)
 	_, err = pipe.Exec(ctx)
-	return errno.ErrCacheSetFailed.WithCause(err)
+	if err != nil {
+		return errno.ErrCacheSetFailed.WithCause(err)
+	}
+	return nil
 }
 
 func (c *userCache) Del(ctx context.Context, user *domain.User) error {
