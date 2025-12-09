@@ -78,6 +78,7 @@ func (r *productRepo) FindByID(ctx context.Context, id int64) (*domain.Product, 
 }
 
 func (r *productRepo) List(ctx context.Context, offset, limit int, category string) ([]*domain.Product, int64, error) {
+	// TODO 需要添加缓存
 	var products []*domain.Product
 	var total int64
 

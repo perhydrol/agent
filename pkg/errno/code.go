@@ -9,6 +9,12 @@ var (
 	ErrNotFound       = New(10004, "资源不存在")
 )
 
+var (
+	ErrUserAlreadyExist  = New(20005, "用户已存在")
+	ErrUserNotFound      = New(2006, "用户名错误或密码错误")
+	ErrPasswordIncorrect = New(2006, "用户名错误或密码错误")
+)
+
 // 2. 订单模块错误 (20000 - 29999)
 var (
 	ErrOrderNotFound    = New(20001, "订单不存在")
@@ -34,4 +40,10 @@ var (
 	ErrCacheLockerReleaseFailed = New(40007, "缓存锁释放失败")
 	ErrCacheLockerRefreshFailed = New(40008, "缓存锁续期失败")
 	ErrCacheListParseFailed     = New(40009, "缓存列表解析失败")
+)
+
+var (
+	ErrMissingHeader = New(50001, "the length of the `Authorization` header is zero")
+	ErrInvalidToken  = New(50002, "the `Authorization` header is invalid")
+	ErrSigningMethod = New(50003, "the `Authorization` signing method is invalid")
 )

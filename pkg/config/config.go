@@ -21,9 +21,10 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port  string `mapstructure:"port"`
-	Mode  string `mapstructure:"mode"`
-	Stack bool   `mapstructure:"stack"`
+	Port      string `mapstructure:"port"`
+	Mode      string `mapstructure:"mode"`
+	Stack     bool   `mapstructure:"stack"`
+	JwtPasswd string `mapstructure:"jwt_password"`
 }
 
 type DatabaseConfig struct {
