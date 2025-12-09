@@ -2,8 +2,11 @@ package order
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/perhydrol/insurance-agent-backend/internal/infrastructure/queue"
 	"github.com/perhydrol/insurance-agent-backend/pkg/domain"
 	"github.com/perhydrol/insurance-agent-backend/pkg/errno"
@@ -14,6 +17,7 @@ import (
 type Service interface {
 	CreateOrder(ctx context.Context, userID int64, productID int64) (*domain.Order, error)
 	PayOrder(ctx context.Context, userID int64, orderID int64) error
+	processOrder(ctx context.Context)
 }
 
 type orderService struct {
@@ -22,8 +26,10 @@ type orderService struct {
 	queue       queue.JobQueue
 }
 
-func NewService(o domain.OrderRepository, p domain.ProductRepository, q queue.JobQueue) Service {
-	return &orderService{orderRepo: o, productRepo: p, queue: q}
+func NewService(ctx context.Context, o domain.OrderRepository, p domain.ProductRepository, q queue.JobQueue) Service {
+	service := orderService{orderRepo: o, productRepo: p, queue: q}
+	go service.processOrder(ctx)
+	return &service
 }
 
 func (s *orderService) CreateOrder(ctx context.Context, userID int64, productID int64) (*domain.Order, error) {
@@ -82,7 +88,15 @@ func (s *orderService) PayOrder(ctx context.Context, userID int64, orderID int64
 		ProductID: order.ProductID,
 	}
 
-	err = s.queue.Push(ctx, orderQueueKey, payload)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return errno.ErrServerMarshalFailed.WithCause(fmt.Errorf("failed to marshal payload: %w", err))
+	}
+
+	err = s.queue.Push(ctx, orderQueueKey, map[string]interface{}{
+		"payload": string(payloadBytes),
+	})
+
 	if err != nil {
 		logger.Log.Error("Order paid but failed to queue underwriting task!",
 			zap.Int64("user_id", userID),
@@ -93,4 +107,64 @@ func (s *orderService) PayOrder(ctx context.Context, userID int64, orderID int64
 		return nil // 返回 nil，因为对用户来说支付是成功的
 	}
 	return nil
+}
+
+func (s *orderService) processOrder(ctx context.Context) {
+	orderChan := make(chan any)
+	go s.queue.Consume(ctx, orderQueueKey, orderQueueKey, orderChan)
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Log.Info("Order processing worker stopped")
+			return
+		case o := <-orderChan:
+			msgMap, ok := o.(map[string]interface{})
+			if !ok {
+				logger.Log.Error("invalid message format: expected map[string]interface{}", zap.Any("received", o))
+				continue
+			}
+
+			payloadStr, ok := msgMap["payload"].(string)
+			if !ok {
+				logger.Log.Error("invalid payload format: expected string in 'payload' field",
+					zap.Any("msg_map", msgMap),
+				)
+				continue
+			}
+
+			var task taskPayload
+			if err := json.Unmarshal([]byte(payloadStr), &task); err != nil {
+				logger.Log.Error("failed to unmarshal task payload", zap.String("payload", payloadStr), zap.Error(err))
+				continue
+			}
+
+			// 模拟核保
+			s.handleUnderwriting(ctx, &task)
+		}
+	}
+}
+
+func (s *orderService) handleUnderwriting(ctx context.Context, task *taskPayload) {
+	logger.Log.Info("Start underwriting...", zap.Int64("order_id", task.ID))
+
+	// 模拟耗时操作
+	time.Sleep(500 * time.Millisecond)
+
+	// 模拟核保通过，生成保单号
+	policyNumber := fmt.Sprintf("POL-%s-%d", uuid.New().String()[:8], task.ID)
+
+	// processOrder 传入的通常是 Background context，所以无需担心过期问题
+	err := s.orderRepo.UpdatePolicy(ctx, task.ID, policyNumber)
+	if err != nil {
+		logger.Log.Error("Failed to update policy number",
+			zap.Int64("order_id", task.ID),
+			zap.Error(err),
+		)
+		return
+	}
+
+	logger.Log.Info("Underwriting completed, policy issued",
+		zap.Int64("order_id", task.ID),
+		zap.String("policy_number", policyNumber),
+	)
 }

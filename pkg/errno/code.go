@@ -2,11 +2,13 @@ package errno
 
 // 1. 通用错误 (10000 - 19999)
 var (
-	OK                = New(0, "success")
-	ErrInternalServer = New(10001, "服务器内部错误")
-	ErrBadRequest     = New(10002, "参数错误")
-	ErrUnauthorized   = New(10003, "未授权")
-	ErrNotFound       = New(10004, "资源不存在")
+	OK                       = New(0, "success")
+	ErrInternalServer        = New(10001, "服务器内部错误")
+	ErrBadRequest            = New(10002, "参数错误")
+	ErrUnauthorized          = New(10003, "未授权")
+	ErrNotFound              = New(10004, "资源不存在")
+	ErrServerMarshalFailed   = New(10005, "数据序列化失败")
+	ErrServerUnmarshalFailed = New(10006, "数据反序列化失败")
 )
 
 var (
