@@ -76,13 +76,13 @@ func (s *orderService) PayOrder(ctx context.Context, userID int64, orderID int64
 	}
 
 	// 发送消息到 Queue (触发异步核保)
-	payload := queue.TaskPayload{
+	payload := taskPayload{
 		ID:        order.ID,
 		UserID:    order.UserID,
 		ProductID: order.ProductID,
 	}
 
-	err = s.queue.PushUnderwritingJob(ctx, payload)
+	err = s.queue.Push(ctx, orderQueueKey, payload)
 	if err != nil {
 		logger.Log.Error("Order paid but failed to queue underwriting task!",
 			zap.Int64("user_id", userID),

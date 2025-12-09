@@ -41,6 +41,8 @@ var (
 	ErrCacheLockerReleaseFailed = New(40007, "缓存锁释放失败")
 	ErrCacheLockerRefreshFailed = New(40008, "缓存锁续期失败")
 	ErrCacheListParseFailed     = New(40009, "缓存列表解析失败")
+	ErrStreamAddTaskFailed      = New(40010, "消息队列添加任务失败")
+	ErrStreamCreateGroupFailed  = New(40010, "消息队列创建任务组失败")
 )
 
 var (
