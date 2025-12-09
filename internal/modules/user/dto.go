@@ -17,13 +17,13 @@ type LoginReq struct {
 type LoginResp struct {
 	AccessToken string `json:"access_token" example:"eyJhbGciOiJIUzI1Ni..."`
 	ExpiresIn   int    `json:"expires_in" example:"86400"` // Token 有效期(秒)
-	UserID      int64  `json:"user_id" example:"1"`
+	UserID      int64  `json:"user_id,string" example:"1"`
 	Username    string `json:"username" example:"johndoe"`
 }
 
 // ProfileResp 用户个人信息返回
 type ProfileResp struct {
-	ID        int64  `json:"id" example:"1"`
+	ID        int64  `json:"id,string" example:"1"`
 	Username  string `json:"username" example:"johndoe"`
 	Email     string `json:"email" example:"john@example.com"`
 	CreatedAt string `json:"created_at" example:"2023-10-01 12:00:00"`

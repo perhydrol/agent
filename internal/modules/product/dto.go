@@ -7,9 +7,9 @@ import (
 )
 
 type TaskPayload struct {
-	ID        string `json:"order_id"`
-	UserID    int64  `json:"user_id"`
-	ProductID int64  `json:"product_id"`
+	ID        int64 `json:"order_id,string"`
+	UserID    int64 `json:"user_id,string"`
+	ProductID int64 `json:"product_id,string"`
 }
 
 type PResp struct {

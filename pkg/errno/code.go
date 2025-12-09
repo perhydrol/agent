@@ -17,10 +17,11 @@ var (
 
 // 2. 订单模块错误 (20000 - 29999)
 var (
-	ErrOrderNotFound    = New(20001, "订单不存在")
-	ErrOrderCannotPay   = New(20002, "订单状态不可支付")
-	ErrOrderPriceChange = New(20003, "商品价格已变动，请重新下单")
-	ErrOptimisticLock   = New(20004, "数据已更新，请刷新重试")
+	ErrOrderNotFound     = New(20001, "订单不存在")
+	ErrOrderCannotPay    = New(20002, "订单状态不可支付")
+	ErrOrderPriceChange  = New(20003, "商品价格已变动，请重新下单")
+	ErrOptimisticLock    = New(20004, "数据已更新，请刷新重试")
+	ErrOrderUnauthorized = New(20005, "认证用户身份失败")
 )
 
 // 3. 仓储错误 (30000 - 39999)

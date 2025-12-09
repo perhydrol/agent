@@ -10,13 +10,13 @@ import (
 // JobQueue 定义异步任务队列的标准接口
 type JobQueue interface {
 	// Push 将订单ID推入待核保队列
-	PushUnderwritingJob(ctx context.Context, orderID string) error
+	PushUnderwritingJob(ctx context.Context, order TaskPayload) error
 }
 
 type TaskPayload struct {
-	ID        string `json:"order_id"`
-	UserID    int64  `json:"user_id"`
-	ProductID int64  `json:"product_id"`
+	ID        int64 `json:"order_id,string"`
+	UserID    int64 `json:"user_id,string"`
+	ProductID int64 `json:"product_id,string"`
 }
 
 type RedisQueue struct {
@@ -31,7 +31,7 @@ func NewRedisQueue(client *redis.Client, logger *zap.Logger) JobQueue {
 	}
 }
 
-func (q *RedisQueue) PushUnderwritingJob(ctx context.Context, orderID string) error {
+func (q *RedisQueue) PushUnderwritingJob(ctx context.Context, order TaskPayload) error {
 	// TODO
 	return nil
 }
