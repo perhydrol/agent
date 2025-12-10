@@ -33,14 +33,14 @@ func NewPHandler(srv Service) *PHandler {
 func (h *PHandler) ListProducts(c *gin.Context) {
 	var req PListReq
 	if err := c.ShouldBindJSON(req); err != nil {
-		logger.NewContext(c).Error("failed to bind query in ListProducts", zap.Error(err))
+		logger.NewContext(c.Request.Context()).Error("failed to bind query in ListProducts", zap.Error(err))
 		response.Error(c, errno.ErrBadRequest.WithCause(err))
 		return
 	}
 
 	products, total, err := h.srv.ListProducts(c, req.Page, req.PageSize, req.Category)
 	if err != nil {
-		logger.NewContext(c).Error("failed to ListProducts", zap.Error(err))
+		logger.NewContext(c.Request.Context()).Error("failed to ListProducts", zap.Error(err))
 		response.Error(c, errno.ErrNotFound.WithCause(err))
 		return
 	}
@@ -48,7 +48,7 @@ func (h *PHandler) ListProducts(c *gin.Context) {
 	respList := make([]PResp, 0, len(products))
 	for _, pr := range products {
 		if pr == nil {
-			logger.NewContext(c).Error(
+			logger.NewContext(c.Request.Context()).Error(
 				"failed to process product due to nil value",    // 更明确的日志消息
 				zap.Error(errors.New("product pointer is nil")), // 创建一个具体的错误对象
 			)
@@ -73,14 +73,14 @@ func (h *PHandler) GetProduct(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		logger.NewContext(c).Error("failed to parse productID in GetProduct", zap.String("id", idStr), zap.Error(err))
+		logger.NewContext(c.Request.Context()).Error("failed to parse productID in GetProduct", zap.String("id", idStr), zap.Error(err))
 		response.Error(c, errno.ErrBadRequest.WithCause(err))
 		return
 	}
 
 	product, err := h.srv.GetProduct(c, id)
 	if err != nil {
-		logger.NewContext(c).Error("failed to GetProduct", zap.Int64("id", id), zap.Error(err))
+		logger.NewContext(c.Request.Context()).Error("failed to GetProduct", zap.Int64("id", id), zap.Error(err))
 		response.Error(c, err)
 		return
 	}

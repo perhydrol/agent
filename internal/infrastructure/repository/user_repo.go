@@ -71,7 +71,7 @@ func (r *userRepo) GetUserByName(ctx context.Context, username string) (*domain.
 		return &u, nil
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, errno.ErrUserNotFound
 	}
 	if err != nil {
 		return nil, errno.ErrRepoDB.WithCause(err)

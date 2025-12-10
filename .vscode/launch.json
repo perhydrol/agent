@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Make Artifact",
+            "type": "go",
+            "request": "launch",
+            "mode": "exec",
+            "program": "${workspaceFolder}/tmp/insurai",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch Package (cmd/main.go)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/main.go",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

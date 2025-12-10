@@ -1,6 +1,8 @@
 package traceid
 
-import "context"
+import (
+	"context"
+)
 
 type ctxKey string
 

@@ -20,7 +20,7 @@ func InitDB(cfg config.DatabaseConfig) {
 		gormLogger := NewGormLogger(logger.Log, cfg.SlowThreshold)
 
 		var err error
-		DB, err := gorm.Open(mysql.Open(cfg.DSN), &gorm.Config{
+		DB, err = gorm.Open(mysql.Open(cfg.DSN), &gorm.Config{
 			Logger: &gormLogger,
 		})
 

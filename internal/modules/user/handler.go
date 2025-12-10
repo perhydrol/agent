@@ -28,7 +28,7 @@ func NewUHandler(src Service) *UHandler {
 func (h *UHandler) Register(c *gin.Context) {
 	var req RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.NewContext(c).Error("failed to bind json in Register", zap.Error(err))
+		logger.NewContext(c.Request.Context()).Error("failed to bind json in Register", zap.Error(err))
 		response.Error(c, errno.ErrBadRequest.WithCause(err))
 		return
 	}
@@ -54,14 +54,14 @@ func (h *UHandler) Register(c *gin.Context) {
 func (h *UHandler) Login(c *gin.Context) {
 	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.NewContext(c).Error("failed to bind json in Login", zap.Error(err))
+		logger.NewContext(c.Request.Context()).Error("failed to bind json in Login", zap.Error(err))
 		response.Error(c, errno.ErrBadRequest.WithCause(err))
 		return
 	}
 
 	resp, err := h.src.Login(c, &req)
 	if err != nil {
-		logger.NewContext(c).Error("failed to Login", zap.String("username", req.Username), zap.Error(err))
+		logger.NewContext(c.Request.Context()).Info("failed to Login", zap.String("username", req.Username), zap.Error(err))
 		response.Error(c, err)
 		return
 	}

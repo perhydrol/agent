@@ -30,7 +30,7 @@ func NewOHandler(svc Service) *OHandler {
 func (h *OHandler) CreateOrder(c *gin.Context) {
 	var req CreateOrderReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.NewContext(c).Error("failed to bind json in CreateOrder",
+		logger.NewContext(c.Request.Context()).Error("failed to bind json in CreateOrder",
 			zap.Error(err),
 		)
 		response.Error(c, errno.ErrBadRequest.WithCause(err))
@@ -41,7 +41,7 @@ func (h *OHandler) CreateOrder(c *gin.Context) {
 
 	orderResp, err := h.svc.CreateOrder(c, userID, req.ProductID)
 	if err != nil {
-		logger.NewContext(c).Error("failed to CreateOrder",
+		logger.NewContext(c.Request.Context()).Error("failed to CreateOrder",
 			zap.Int64("user_id", userID),
 			zap.Int64("product_id", req.ProductID),
 			zap.Error(err),

@@ -48,6 +48,13 @@ func (q *RedisQueue) Push(ctx context.Context, streamName string, task any) erro
 
 func (q *RedisQueue) Consume(ctx context.Context, streamName string, consumerName string, retChan chan<- any) {
 	groupName := streamName + "group"
+	err := q.client.XGroupCreateMkStream(ctx, streamName, groupName, "0").Err()
+	if err != nil && err.Error() != "BUSYGROUP Consumer Group name already exists" {
+		logger.Log.Error("failed to create consumer group",
+			zap.String("streamName", streamName),
+			zap.Error(err),
+		)
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -57,10 +64,10 @@ func (q *RedisQueue) Consume(ctx context.Context, streamName string, consumerNam
 		// 阻塞读取消息
 		streams, err := q.client.XReadGroup(ctx, &redis.XReadGroupArgs{
 			Group:    groupName,
-			Consumer: consumerName,             // 消费者名称，分布式下要唯一
-			Streams:  []string{groupName, ">"}, // ">" 表示读取该组尚未处理的新消息
-			Count:    1,                        // 每次读取的数量
-			Block:    2 * time.Second,          // 阻塞 2 秒，避免死循环占用过多 CPU，同时允许检查 ctx.Done
+			Consumer: consumerName,              // 消费者名称，分布式下要唯一
+			Streams:  []string{streamName, ">"}, // ">" 表示读取该组尚未处理的新消息
+			Count:    1,                         // 每次读取的数量
+			Block:    2 * time.Second,           // 阻塞 2 秒，避免死循环占用过多 CPU，同时允许检查 ctx.Done
 		}).Result()
 
 		if err != nil {

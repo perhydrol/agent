@@ -57,8 +57,12 @@ func (h *ZapLogHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 			return err
 		}
 
-		if cost > h.slowThreshold {
+		if !isBlockingCommand(cmd.Name()) && cost > h.slowThreshold {
 			h.zapLogger.Warn("redis slow query", fields...)
+			return err
+		}
+
+		if isBlockingCommand(cmd.Name()) && errors.Is(err, redis.Nil) {
 			return err
 		}
 
@@ -66,6 +70,15 @@ func (h *ZapLogHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 			ce.Write(fields...)
 		}
 		return err
+	}
+}
+
+func isBlockingCommand(cmd string) bool {
+	switch cmd {
+	case "blpop", "brpop", "brpoplpush", "blmove", "bzpopmin", "bzpopmax", "xread", "xreadgroup":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -44,7 +44,7 @@ func (s *userService) Register(ctx context.Context, req *RegisterReq) error {
 
 func (s *userService) Login(ctx context.Context, req *LoginReq) (*LoginResp, error) {
 	user, err := s.repo.GetUserByName(ctx, req.Username)
-	if err != nil {
+	if err != nil || user == nil {
 		return nil, errno.ErrUserNotFound
 	}
 

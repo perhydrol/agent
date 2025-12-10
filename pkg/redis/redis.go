@@ -25,7 +25,7 @@ func InitRedisDB(cfg config.RedisConfig) {
 			DB:       cfg.DB,
 		})
 
-		zaphook := NewZapLogHook(logger.Log, time.Duration(cfg.SlowThreshold), cfg.LogMaxLen)
+		zaphook := NewZapLogHook(logger.Log, time.Duration(cfg.SlowThreshold)*time.Millisecond, cfg.LogMaxLen)
 		RDB.AddHook(&zaphook)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
