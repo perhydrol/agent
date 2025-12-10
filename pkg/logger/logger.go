@@ -1,11 +1,13 @@
 package logger
 
 import (
+	"context"
 	"os"
 	"sync"
 
 	"github.com/natefinch/lumberjack"
 	"github.com/perhydrol/insurance-agent-backend/pkg/config"
+	traceid "github.com/perhydrol/insurance-agent-backend/pkg/traceID"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -55,4 +57,12 @@ func getLogWriter(cfg config.LogConfig) zapcore.WriteSyncer {
 		Compress:   cfg.Compress,
 	}
 	return zapcore.AddSync(lumberjackLogger)
+}
+
+// NewContext returns a logger with trace ID from context
+func NewContext(ctx context.Context) *zap.Logger {
+	if Log == nil {
+		return zap.L()
+	}
+	return Log.With(zap.String(traceid.TraceIDKey, traceid.GetTraceID(ctx)))
 }
