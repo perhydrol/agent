@@ -28,7 +28,7 @@ func NewPHandler(srv Service) *PHandler {
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(10)
 // @Param category query string false "分类"
-// @Success 200 {object} response.PageResult{list=[]ProductResp}
+// @Success 200 {object} response.Response{data=PListResp}
 // @Router /products [get]
 func (h *PHandler) ListProducts(c *gin.Context) {
 	var req PListReq

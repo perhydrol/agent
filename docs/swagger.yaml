@@ -1,4 +1,153 @@
 basePath: /api/v1
+definitions:
+  domain.Order:
+    properties:
+      created_at:
+        type: string
+      id:
+        example: "0"
+        type: string
+      policy_number:
+        description: |-
+          4. 异步核保结果
+          omitempty: 如果还没生成保单号，JSON里就不返回这个字段，保持接口整洁
+        type: string
+      product_id:
+        example: "0"
+        type: string
+      product_name:
+        description: |-
+          2. 快照字段 (Snapshot)
+          即使 Product 表里的数据变了，这里的数据绝对不能变
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/domain.OrderStatus'
+        description: 3. 状态机
+      total_amount:
+        description: 订单总金额 (可能包含后续的折扣逻辑，所以单独存)
+        type: number
+      unit_price:
+        type: number
+      updated_at:
+        type: string
+      user_id:
+        example: "0"
+        type: string
+    type: object
+  domain.OrderStatus:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    type: integer
+    x-enum-varnames:
+    - OrderStatusPending
+    - OrderStatusPaid
+    - OrderStatusActive
+    - OrderStatusFailed
+  order.CreateOrderReq:
+    properties:
+      product_id:
+        example: "0"
+        type: string
+    required:
+    - product_id
+    type: object
+  product.PListResp:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/product.PResp'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  product.PResp:
+    properties:
+      base_price:
+        example: 100
+        type: number
+      category:
+        example: travel
+        type: string
+      description:
+        example: Comprehensive travel insurance
+        type: string
+      features:
+        description: |-
+          json.RawMessage 在校验层通常只需要保证格式正确，
+          但 validator 对 RawMessage 支持有限，通常由 json Unmarshal 自动处理，
+          这里 omitempty 表示允许不传。
+        example: '{"coverage": 100000}'
+        type: string
+      id:
+        example: "1"
+        type: string
+      name:
+        example: Travel Insurance
+        type: string
+    type: object
+  response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      msg:
+        type: string
+    type: object
+  user.LoginReq:
+    properties:
+      password:
+        example: secret123
+        type: string
+      username:
+        example: johndoe
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  user.LoginResp:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1Ni...
+        type: string
+      expires_in:
+        description: Token 有效期(秒)
+        example: 86400
+        type: integer
+      user_id:
+        example: "1"
+        type: string
+      username:
+        example: johndoe
+        type: string
+    type: object
+  user.RegisterReq:
+    properties:
+      email:
+        example: alice@example.com
+        type: string
+      password:
+        example: password121212
+        minLength: 6
+        type: string
+      username:
+        example: alice
+        maxLength: 32
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -6,6 +155,103 @@ info:
   title: InsurAI Platform API
   version: "1.0"
 paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 用户登录接口
+      parameters:
+      - description: 登录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.LoginReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/user.LoginResp'
+              type: object
+      summary: 用户登录
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 用户注册接口
+      parameters:
+      - description: 注册信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.RegisterReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 用户注册
+      tags:
+      - Auth
+  /orders:
+    post:
+      consumes:
+      - application/json
+      description: 创建订单
+      parameters:
+      - description: 创建订单请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/order.CreateOrderReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Order'
+              type: object
+      summary: 创建订单
+      tags:
+      - Order
+  /orders/{id}/pay:
+    post:
+      consumes:
+      - application/json
+      description: 支付订单
+      parameters:
+      - description: 订单ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 支付订单
+      tags:
+      - Order
   /ping:
     get:
       consumes:
@@ -23,4 +269,65 @@ paths:
       summary: 健康检查
       tags:
       - System
+  /products:
+    get:
+      consumes:
+      - application/json
+      description: 获取产品列表，支持分页和分类筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 分类
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/product.PListResp'
+              type: object
+      summary: 获取产品列表
+      tags:
+      - Product
+  /products/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取产品详情
+      parameters:
+      - description: 产品ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/product.PResp'
+              type: object
+      summary: 获取产品详情
+      tags:
+      - Product
 swagger: "2.0"
