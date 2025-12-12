@@ -13,10 +13,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// 返回 nil 表示处理成功 (会自动 ACK)
+// 返回 error 表示处理失败 (不会 ACK，等待重试)
+type Handler func(ctx context.Context, task any) error
+
 // JobQueue 定义异步任务队列的标准接口
 type JobQueue interface {
 	Push(ctx context.Context, streamName string, task any) error
-	Consume(ctx context.Context, streamName string, consumerName string, retChan chan<- any)
+	Consume(ctx context.Context, streamName string, consumerName string, handler Handler)
 }
 
 type RedisQueue struct {
@@ -48,7 +52,7 @@ func (q *RedisQueue) Push(ctx context.Context, streamName string, task any) erro
 	return nil
 }
 
-func (q *RedisQueue) Consume(ctx context.Context, streamName string, consumerName string, retChan chan<- any) {
+func (q *RedisQueue) Consume(ctx context.Context, streamName string, consumerName string, handler Handler) {
 	groupName := streamName + "group"
 	err := q.client.XGroupCreateMkStream(ctx, streamName, groupName, "0").Err()
 	if err != nil && err.Error() != "BUSYGROUP Consumer Group name already exists" {
@@ -59,7 +63,7 @@ func (q *RedisQueue) Consume(ctx context.Context, streamName string, consumerNam
 	}
 
 	// 启动处理 PEL 队列的goroutine
-	go q.monitorPending(ctx, streamName, consumerName, retChan)
+	go q.monitorPending(ctx, streamName, consumerName, handler)
 	for {
 		select {
 		case <-ctx.Done():
@@ -91,18 +95,21 @@ func (q *RedisQueue) Consume(ctx context.Context, streamName string, consumerNam
 		for _, stream := range streams {
 			for _, message := range stream.Messages {
 				logger.Log.Info("get a new message", zap.String("message_id", message.ID))
-				select {
-				case retChan <- message.Values:
-					q.client.XAck(ctx, streamName, groupName, message.ID)
-				case <-ctx.Done():
-					return
+				value := message.Values
+				if err := handler(ctx, value); err != nil {
+					logger.Log.Error("failed to process message",
+						zap.String("msg_id", message.ID),
+						zap.Error(err),
+					)
+					continue
 				}
+				q.client.XAck(ctx, streamName, groupName, message.ID)
 			}
 		}
 	}
 }
 
-func (q *RedisQueue) monitorPending(ctx context.Context, streamName, consumerName string, retChan chan<- any) {
+func (q *RedisQueue) monitorPending(ctx context.Context, streamName, consumerName string, handler Handler) {
 	//nolint:gosec
 	time.Sleep(time.Duration(rand.Intn(300)) * time.Millisecond)
 	ticker := time.NewTicker(time.Duration(config.AppConfig.Redis.CheckInterval) * time.Second)
@@ -113,12 +120,12 @@ func (q *RedisQueue) monitorPending(ctx context.Context, streamName, consumerNam
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			q.processPendingMessages(ctx, streamName, consumerName, retChan)
+			q.processPendingMessages(ctx, streamName, consumerName, handler)
 		}
 	}
 }
 
-func (q *RedisQueue) processPendingMessages(ctx context.Context, streamName, consumerName string, retChan chan<- any) {
+func (q *RedisQueue) processPendingMessages(ctx context.Context, streamName, consumerName string, handler Handler) {
 	groupName := streamName + "group"
 	pendingCmd := q.client.XPendingExt(ctx, &redis.XPendingExtArgs{
 		Stream: streamName,
@@ -172,12 +179,15 @@ func (q *RedisQueue) processPendingMessages(ctx context.Context, streamName, con
 			}
 
 			for _, xmsg := range claimedMsgs {
-				select {
-				case <-ctx.Done():
-					return
-				case retChan <- xmsg.Values:
-					q.client.XAck(ctx, streamName, groupName, xmsg.ID)
+				value := xmsg.Values
+				if err := handler(ctx, value); err != nil {
+					logger.Log.Error("failed to process message",
+						zap.String("msg_id", xmsg.ID),
+						zap.Error(err),
+					)
+					continue
 				}
+				q.client.XAck(ctx, streamName, groupName, xmsg.ID)
 			}
 		}
 	}

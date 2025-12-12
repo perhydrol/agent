@@ -110,41 +110,34 @@ func (s *orderService) PayOrder(ctx context.Context, userID int64, orderID int64
 }
 
 func (s *orderService) processOrder(ctx context.Context) {
-	orderChan := make(chan any)
-	go s.queue.Consume(ctx, orderQueueKey, orderQueueKey, orderChan)
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Log.Info("Order processing worker stopped")
-			return
-		case o := <-orderChan:
-			msgMap, ok := o.(map[string]interface{})
-			if !ok {
-				logger.Log.Error("invalid message format: expected map[string]interface{}", zap.Any("received", o))
-				continue
-			}
-
-			payloadStr, ok := msgMap["payload"].(string)
-			if !ok {
-				logger.Log.Error("invalid payload format: expected string in 'payload' field",
-					zap.Any("msg_map", msgMap),
-				)
-				continue
-			}
-
-			var task taskPayload
-			if err := json.Unmarshal([]byte(payloadStr), &task); err != nil {
-				logger.Log.Error("failed to unmarshal task payload", zap.String("payload", payloadStr), zap.Error(err))
-				continue
-			}
-
-			// 模拟核保
-			s.handleUnderwriting(ctx, &task)
+	s.queue.Consume(ctx, orderQueueKey, orderQueueKey, func(ctx context.Context, o any) error {
+		msgMap, ok := o.(map[string]any)
+		if !ok {
+			logger.Log.Error("invalid message format: expected map[string]interface{}", zap.Any("received", o))
+			// 返回 nil 表示虽然格式错误，但这是一个不可恢复的错误，我们确认掉它，避免死循环
+			return nil
 		}
-	}
+
+		payloadStr, ok := msgMap["payload"].(string)
+		if !ok {
+			logger.Log.Error("invalid payload format: expected string in 'payload' field",
+				zap.Any("msg_map", msgMap),
+			)
+			return nil
+		}
+
+		var task taskPayload
+		if err := json.Unmarshal([]byte(payloadStr), &task); err != nil {
+			logger.Log.Error("failed to unmarshal task payload", zap.String("payload", payloadStr), zap.Error(err))
+			return nil
+		}
+
+		// 模拟核保
+		return s.handleUnderwriting(ctx, &task)
+	})
 }
 
-func (s *orderService) handleUnderwriting(ctx context.Context, task *taskPayload) {
+func (s *orderService) handleUnderwriting(ctx context.Context, task *taskPayload) error {
 	logger.Log.Info("Start underwriting...", zap.Int64("order_id", task.ID))
 
 	// 模拟耗时操作
@@ -160,11 +153,13 @@ func (s *orderService) handleUnderwriting(ctx context.Context, task *taskPayload
 			zap.Int64("order_id", task.ID),
 			zap.Error(err),
 		)
-		return
+		// 告知 redis 发生了错误
+		return err
 	}
 
 	logger.Log.Info("Underwriting completed, policy issued",
 		zap.Int64("order_id", task.ID),
 		zap.String("policy_number", policyNumber),
 	)
+	return nil
 }
