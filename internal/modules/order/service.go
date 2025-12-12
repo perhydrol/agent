@@ -47,7 +47,7 @@ func (s *orderService) CreateOrder(ctx context.Context, userID int64, productID 
 		Status:               domain.OrderStatusPending,
 	}
 
-	// 3.2 创建订单
+	// 创建订单
 	if err := s.orderRepo.Create(ctx, order); err != nil {
 		// 实际还需要回滚库存，或者在一个 DB 事务中完成
 		return nil, err

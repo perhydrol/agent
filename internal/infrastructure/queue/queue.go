@@ -3,8 +3,10 @@ package queue
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
+	"github.com/perhydrol/insurance-agent-backend/pkg/config"
 	"github.com/perhydrol/insurance-agent-backend/pkg/errno"
 	"github.com/perhydrol/insurance-agent-backend/pkg/logger"
 	"github.com/redis/go-redis/v9"
@@ -55,6 +57,9 @@ func (q *RedisQueue) Consume(ctx context.Context, streamName string, consumerNam
 			zap.Error(err),
 		)
 	}
+
+	// 启动处理 PEL 队列的goroutine
+	go q.monitorPending(ctx, streamName, consumerName, retChan)
 	for {
 		select {
 		case <-ctx.Done():
@@ -91,6 +96,87 @@ func (q *RedisQueue) Consume(ctx context.Context, streamName string, consumerNam
 					q.client.XAck(ctx, streamName, groupName, message.ID)
 				case <-ctx.Done():
 					return
+				}
+			}
+		}
+	}
+}
+
+func (q *RedisQueue) monitorPending(ctx context.Context, streamName, consumerName string, retChan chan<- any) {
+	//nolint:gosec
+	time.Sleep(time.Duration(rand.Intn(300)) * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(config.AppConfig.Redis.CheckInterval) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			q.processPendingMessages(ctx, streamName, consumerName, retChan)
+		}
+	}
+}
+
+func (q *RedisQueue) processPendingMessages(ctx context.Context, streamName, consumerName string, retChan chan<- any) {
+	groupName := streamName + "group"
+	pendingCmd := q.client.XPendingExt(ctx, &redis.XPendingExtArgs{
+		Stream: streamName,
+		Group:  groupName,
+		Start:  "-",
+		End:    "+",
+		Count:  int64(config.AppConfig.Redis.BatchSize),
+	})
+
+	redisConfig := &config.AppConfig.Redis
+	pendingMsg, err := pendingCmd.Result()
+	if err != nil {
+		logger.Log.Error("failed to get pending messages", zap.Error(err))
+		return
+	}
+
+	if len(pendingMsg) == 0 {
+		return
+	}
+
+	for _, msg := range pendingMsg {
+		if msg.RetryCount > int64(redisConfig.MaxRetries) {
+			logger.Log.Warn("message reached max retries, dropping",
+				zap.String("msg_id", msg.ID),
+				zap.Int64("retry_count", msg.RetryCount),
+			)
+			// 在实际生产环境中，这里应该先把消息 XADD 到死信队列 (DLQ) 再 ACK
+			q.client.XAck(ctx, streamName, groupName, msg.ID)
+			continue
+		}
+
+		idleThreshold := time.Duration(redisConfig.IdleThreshold) * time.Second
+		if msg.Idle >= idleThreshold {
+			logger.Log.Info("claiming idle message",
+				zap.String("msg_id", msg.ID),
+				zap.Duration("idle", msg.Idle),
+			)
+
+			// XClaim 会将消息的所有权转移给当前消费者，并重置 Idle 时间，增加 DeliveryCount
+			claimArgs := &redis.XClaimArgs{
+				Stream:   streamName,
+				Group:    groupName,
+				Consumer: consumerName,
+				MinIdle:  idleThreshold,
+				Messages: []string{msg.ID},
+			}
+			claimedMsgs, err := q.client.XClaim(ctx, claimArgs).Result()
+			if err != nil {
+				logger.Log.Error("failed to claim message", zap.String("msg_id", msg.ID), zap.Error(err))
+				continue
+			}
+
+			for _, xmsg := range claimedMsgs {
+				select {
+				case <-ctx.Done():
+					return
+				case retChan <- xmsg.Values:
+					q.client.XAck(ctx, streamName, groupName, xmsg.ID)
 				}
 			}
 		}

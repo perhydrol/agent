@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	traceid "github.com/perhydrol/insurance-agent-backend/pkg/traceID"
@@ -51,6 +52,11 @@ func (h *ZapLogHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 			zap.Duration("cost", cost),
 		}
 		if err != nil && !errors.Is(err, redis.Nil) {
+			// 忽略 redis client 初始化时的 maint_notifications 不支持错误
+			if strings.Contains(err.Error(), "unknown subcommand 'maint_notifications'") {
+				return err
+			}
+
 			h.zapLogger.Error(
 				"redis cmd failed", append(fields, zap.Error(err))...,
 			)

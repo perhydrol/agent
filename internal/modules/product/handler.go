@@ -73,7 +73,11 @@ func (h *PHandler) GetProduct(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		logger.NewContext(c.Request.Context()).Error("failed to parse productID in GetProduct", zap.String("id", idStr), zap.Error(err))
+		logger.NewContext(
+			c.Request.Context()).Error("failed to parse productID in GetProduct",
+			zap.String("id", idStr),
+			zap.Error(err),
+		)
 		response.Error(c, errno.ErrBadRequest.WithCause(err))
 		return
 	}

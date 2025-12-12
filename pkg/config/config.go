@@ -42,6 +42,10 @@ type RedisConfig struct {
 	DB            int    `mapstructure:"db"`
 	SlowThreshold int    `mapstructure:"slow_threshold"`
 	LogMaxLen     int    `mapstructure:"log_max_len"`
+	MaxRetries    int    `mapstructure:"max_retries"`
+	IdleThreshold int    `mapstructure:"idle_threshold"`
+	CheckInterval int    `mapstructure:"check_interval"`
+	BatchSize     int    `mapstructure:"batch_size"`
 }
 
 type JwtConfig struct {

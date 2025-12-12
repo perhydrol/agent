@@ -61,7 +61,11 @@ func (h *UHandler) Login(c *gin.Context) {
 
 	resp, err := h.src.Login(c, &req)
 	if err != nil {
-		logger.NewContext(c.Request.Context()).Info("failed to Login", zap.String("username", req.Username), zap.Error(err))
+		logger.NewContext(
+			c.Request.Context()).Info("failed to Login",
+			zap.String("username", req.Username),
+			zap.Error(err),
+		)
 		response.Error(c, err)
 		return
 	}
